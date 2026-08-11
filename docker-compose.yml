@@ -1,0 +1,38 @@
+# Three services: postgres (internal only), FastAPI backend on 8000, Next.js frontend on 3000
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # No "ports:" here on purpose - the database is only reachable from
+    # other containers on the compose network (as "db"), never from the host or internet.
+
+  backend:
+    build: ./server
+    container_name: backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./client
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+    container_name: frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
